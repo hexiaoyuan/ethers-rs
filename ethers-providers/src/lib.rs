@@ -626,14 +626,11 @@ pub trait Middleware: Sync + Send + Debug {
     // pt01: subscribe_blocks_for_aurora
     async fn subscribe_blocks_for_aurora(
         &self,
-    ) -> Result<
-        ethers_providers::SubscriptionStream<'_, Self::Provider, Block<Transaction>>,
-        Self::Error,
-    >
+    ) -> Result<SubscriptionStream<'_, Self::Provider, Block<Transaction>>, Self::Error>
     where
         <Self as Middleware>::Provider: PubsubClient,
     {
-        self.inner().subscribe_blocks().await.map_err(FromErr::from)
+        self.inner().subscribe_blocks_for_aurora().await.map_err(FromErr::from)
     }
 
     async fn subscribe_pending_txs(

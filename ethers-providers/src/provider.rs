@@ -1126,10 +1126,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
     // pt01: subscribe_blocks_for_aurora
     async fn subscribe_blocks_for_aurora(
         &self,
-    ) -> Result<
-        ethers_providers::SubscriptionStream<'_, Self::Provider, Block<Transaction>>,
-        Self::Error,
-    >
+    ) -> Result<SubscriptionStream<'_, Self::Provider, Block<Transaction>>, ProviderError>
     where
         <Self as Middleware>::Provider: PubsubClient,
     {

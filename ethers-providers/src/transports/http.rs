@@ -2,11 +2,12 @@
 use crate::{provider::ProviderError, JsonRpcClient};
 
 use async_trait::async_trait;
-use reqwest::{header::HeaderValue, Client, Error as ReqwestError};
+use reqwest::{header::HeaderValue, Client, ClientBuilder, Error as ReqwestError};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     str::FromStr,
     sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
 };
 use thiserror::Error;
 use url::Url;
@@ -124,7 +125,7 @@ impl Provider {
     /// ```
     pub fn new(url: impl Into<Url>) -> Self {
         // Self::new_with_client(url, Client::new())
-        Self::new_with_client(url, my_client_builder.build().unwrap())
+        Self::new_with_client(url, Self::my_client_builder().build().unwrap())
     }
 
     /// The Url to which requests are made
@@ -158,7 +159,7 @@ impl Provider {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(reqwest::header::AUTHORIZATION, auth_value);
 
-        let client = my_client_builder().default_headers(headers).build()?;
+        let client = Self::my_client_builder().default_headers(headers).build()?;
         Ok(Self::new_with_client(url, client))
     }
 

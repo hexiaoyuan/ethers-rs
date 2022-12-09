@@ -36,6 +36,10 @@ pub struct Eip1559TransactionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gas: Option<U256>,
 
+    /// pt01: donot know why but submit aurora through near-rpc need this field
+    #[serde(skip_serializing_if = "Option::is_none", rename = "gas_limit")]
+    pub gas_limit: Option<U256>,
+
     /// Transferred value (None for no transfer)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<U256>,

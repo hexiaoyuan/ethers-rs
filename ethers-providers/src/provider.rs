@@ -873,7 +873,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
                         };
                         let data = self.call(&tx.into(), None).await?;
                         if decode_bytes::<Address>(ParamType::Address, data) != owner {
-                            return Err(ProviderError::CustomError("Incorrect owner.".to_string()))
+                            return Err(ProviderError::CustomError("Incorrect owner.".to_string()));
                         }
                     }
                     erc::ERCNFTType::ERC1155 => {
@@ -893,7 +893,9 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
                         };
                         let data = self.call(&tx.into(), None).await?;
                         if decode_bytes::<u64>(ParamType::Uint(64), data) == 0 {
-                            return Err(ProviderError::CustomError("Incorrect balance.".to_string()))
+                            return Err(ProviderError::CustomError(
+                                "Incorrect balance.".to_string(),
+                            ));
                         }
                     }
                 }
@@ -1121,6 +1123,19 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
         self.subscribe(["newHeads"]).await
     }
 
+    // pt01: subscribe_blocks_for_aurora
+    async fn subscribe_blocks_for_aurora(
+        &self,
+    ) -> Result<
+        ethers_providers::SubscriptionStream<'_, Self::Provider, Block<Transaction>>,
+        Self::Error,
+    >
+    where
+        <Self as Middleware>::Provider: PubsubClient,
+    {
+        self.subscribe(["newHeads"]).await
+    }
+
     async fn subscribe_pending_txs(
         &self,
     ) -> Result<SubscriptionStream<'_, P, TxHash>, ProviderError>
@@ -1189,7 +1204,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
                 if fallback.is_err() {
                     // if the older fallback also resulted in an error, we return the error from the
                     // initial attempt
-                    return err
+                    return err;
                 }
                 fallback
             }
@@ -1223,12 +1238,12 @@ impl<P: JsonRpcClient> Provider<P> {
 
         // otherwise, decode_bytes panics
         if data.0.is_empty() {
-            return Err(ProviderError::EnsError(ens_name.to_string()))
+            return Err(ProviderError::EnsError(ens_name.to_string()));
         }
 
         let resolver_address: Address = decode_bytes(ParamType::Address, data);
         if resolver_address == Address::zero() {
-            return Err(ProviderError::EnsError(ens_name.to_string()))
+            return Err(ProviderError::EnsError(ens_name.to_string()));
         }
 
         if let ParamType::Address = param {
@@ -1258,7 +1273,7 @@ impl<P: JsonRpcClient> Provider<P> {
             return Err(ProviderError::EnsError(format!(
                 "`{}` resolver ({:?}) is invalid.",
                 ens_name, resolver_address
-            )))
+            )));
         }
 
         let supports_selector = abi::decode(&[ParamType::Bool], data.as_ref())
@@ -1271,7 +1286,7 @@ impl<P: JsonRpcClient> Provider<P> {
                 ens_name,
                 resolver_address,
                 hex::encode(selector)
-            )))
+            )));
         }
 
         Ok(())

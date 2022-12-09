@@ -227,12 +227,12 @@ where
             .map_err(ethers_providers::FromErr::from)?;
 
         if receipt.is_none() {
-            return Ok(None)
+            return Ok(None);
         }
 
         let receipt = receipt.expect("checked is_none");
         if receipt.block_number.is_none() {
-            return Ok(Some(receipt))
+            return Ok(Some(receipt));
         }
 
         let number = receipt.block_number.expect("checked is_none");
@@ -342,6 +342,19 @@ where
     async fn subscribe_blocks(
         &self,
     ) -> Result<ethers_providers::SubscriptionStream<'_, Self::Provider, Block<TxHash>>, Self::Error>
+    where
+        Self::Provider: ethers_providers::PubsubClient,
+    {
+        Err(TimeLagError::Unsupported)
+    }
+
+    // pt01: subscribe_blocks_for_aurora
+    async fn subscribe_blocks_for_aurora(
+        &self,
+    ) -> Result<
+        ethers_providers::SubscriptionStream<'_, Self::Provider, Block<Transaction>>,
+        Self::Error,
+    >
     where
         Self::Provider: ethers_providers::PubsubClient,
     {

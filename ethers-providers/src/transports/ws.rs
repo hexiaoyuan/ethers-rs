@@ -252,7 +252,10 @@ where
                         break
                     }
                     Err(e) => {
-                        panic!("WS Server panic: {}", e);
+                        // panic!("WS Server panic: {}", e);
+                        // pt01: even unk-err, we still need retry....
+                        error!("WS Server panic: {}", e);
+                        break;
                     }
                     _ => {}
                 }

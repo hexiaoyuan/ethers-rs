@@ -85,7 +85,7 @@ impl JsonRpcClient for Provider {
                     err: serde::de::Error::custom("unexpected notification over HTTP transport"),
                     text: String::from_utf8_lossy(&body).to_string(),
                 };
-                return Err(err)
+                return Err(err);
             }
             Err(err) => {
                 return Err(ClientError::SerdeJson {
@@ -103,6 +103,14 @@ impl JsonRpcClient for Provider {
 }
 
 impl Provider {
+    // pt01: set default timeout
+    fn my_client_builder() -> ClientBuilder {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(5))
+            .http2_keep_alive_timeout(Duration::from_secs(10))
+            .tcp_keepalive(Some(Duration::from_secs(60)))
+    }
     /// Initializes a new HTTP Client
     ///
     /// # Example
@@ -115,7 +123,8 @@ impl Provider {
     /// let provider = Http::new(url);
     /// ```
     pub fn new(url: impl Into<Url>) -> Self {
-        Self::new_with_client(url, Client::new())
+        // Self::new_with_client(url, Client::new())
+        Self::new_with_client(url, my_client_builder.build().unwrap())
     }
 
     /// The Url to which requests are made
@@ -149,8 +158,7 @@ impl Provider {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(reqwest::header::AUTHORIZATION, auth_value);
 
-        let client = Client::builder().default_headers(headers).build()?;
-
+        let client = my_client_builder().default_headers(headers).build()?;
         Ok(Self::new_with_client(url, client))
     }
 

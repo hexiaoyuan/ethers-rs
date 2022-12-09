@@ -276,6 +276,7 @@ impl From<&Transaction> for Eip1559TransactionRequest {
             from: Some(tx.from),
             to: tx.to.map(NameOrAddress::Address),
             gas: Some(tx.gas),
+            gas_limit: None,
             value: Some(tx.value),
             data: Some(Bytes(tx.input.0.clone())),
             nonce: Some(tx.nonce),

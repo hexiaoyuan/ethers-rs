@@ -195,3 +195,25 @@ This library would not have been possible without the great work done in:
 
 A lot of the code was inspired and adapted from them, to a unified and opinionated interface,
 built with async/await and std futures from the ground up.
+
+## build-pt01
+
+```
+$ git clone git@github.com:hexiaoyuan/ethers-rs.git
+$ git remote add  upstream https://github.com/gakonst/ethers-rs.git
+$ git fetch upstream
+$ git fetch upstream --tags
+
+If you want to fetch only one tag (instead of all tags from upstream):
+git fetch upstream refs/tags/aTagName:refs/tags/aTagName
+
+$ git switch -c v2.0-pt01 v2.0
+$ git push --set-upstream origin v2.0-pt01
+
+.... coding ....
+
+$ git commit
+$ git push
+
+```
+

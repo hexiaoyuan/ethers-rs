@@ -875,6 +875,16 @@ pub trait Middleware: Sync + Send + Debug {
         self.inner().subscribe_blocks().await.map_err(MiddlewareError::from_err)
     }
 
+    /// subscribe_blocks_for_aurora -- pt01
+    async fn subscribe_blocks_for_aurora(
+        &self,
+    ) -> Result<SubscriptionStream<'_, Self::Provider, Block<Transaction>>, Self::Error>
+    where
+        <Self as Middleware>::Provider: PubsubClient,
+    {
+        self.inner().subscribe_blocks_for_aurora().await.map_err(MiddlewareError::from_err)
+    }
+
     /// Subscribe to a stream of pending transactions.
     ///
     /// This function is only available on pubsub clients, such as Websockets

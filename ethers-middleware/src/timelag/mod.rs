@@ -371,6 +371,16 @@ where
         Err(TimeLagError::Unsupported)
     }
 
+    // pt01: subscribe_blocks_for_aurora
+    async fn subscribe_blocks_for_aurora(
+        &self,
+    ) -> Result<ethers_providers::SubscriptionStream<'_, Self::Provider, Block<Transaction>>, Self::Error>
+    where
+        Self::Provider: ethers_providers::PubsubClient,
+    {
+        Err(TimeLagError::Unsupported)
+    }
+
     async fn subscribe_pending_txs(
         &self,
     ) -> Result<ethers_providers::SubscriptionStream<'_, Self::Provider, TxHash>, Self::Error>

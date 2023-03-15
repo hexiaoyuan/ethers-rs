@@ -3,11 +3,12 @@
 use super::common::{Authorization, JsonRpcError, Request, Response};
 use crate::{errors::ProviderError, JsonRpcClient};
 use async_trait::async_trait;
-use reqwest::{header::HeaderValue, Client, Error as ReqwestError};
+use reqwest::{header::HeaderValue, Client, ClientBuilder, Error as ReqwestError};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     str::FromStr,
     sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
 };
 use thiserror::Error;
 use url::Url;
@@ -134,7 +135,16 @@ impl Provider {
     /// let provider = Http::new(url);
     /// ```
     pub fn new(url: impl Into<Url>) -> Self {
-        Self::new_with_client(url, Client::new())
+        Self::new_with_client(url, Self::new_client_builder().build().unwrap())
+    }
+
+    // new_client_builder, set timeout -- pt01
+    fn new_client_builder() -> ClientBuilder {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(5))
+            .http2_keep_alive_timeout(Duration::from_secs(10))
+            .tcp_keepalive(Some(Duration::from_secs(60)))
     }
 
     /// The Url to which requests are made
@@ -168,7 +178,7 @@ impl Provider {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(reqwest::header::AUTHORIZATION, auth_value);
 
-        let client = Client::builder().default_headers(headers).build()?;
+        let client = Self::new_client_builder().default_headers(headers).build()?;
 
         Ok(Self::new_with_client(url, client))
     }

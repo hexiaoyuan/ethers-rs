@@ -1022,6 +1022,16 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
         self.subscribe(["newHeads"]).await
     }
 
+    // pt01: subscribe_blocks_for_aurora
+    async fn subscribe_blocks_for_aurora(
+        &self,
+    ) -> Result<SubscriptionStream<'_, Self::Provider, Block<Transaction>>, ProviderError>
+    where
+        <Self as Middleware>::Provider: PubsubClient,
+    {
+        self.subscribe(["newHeads"]).await
+    }
+
     async fn subscribe_pending_txs(
         &self,
     ) -> Result<SubscriptionStream<'_, P, TxHash>, ProviderError>

@@ -36,6 +36,10 @@ pub struct Eip1559TransactionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gas: Option<U256>,
 
+    /// I donot know why but submit aurora through near-rpc need this field -- pt01
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gas_limit: Option<U256>,
+
     /// Transferred value (None for no transfer)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<U256>,
@@ -273,6 +277,7 @@ impl From<&Transaction> for Eip1559TransactionRequest {
             from: Some(tx.from),
             to: tx.to.map(NameOrAddress::Address),
             gas: Some(tx.gas),
+            gas_limit: None,
             value: Some(tx.value),
             data: Some(Bytes(tx.input.0.clone())),
             nonce: Some(tx.nonce),

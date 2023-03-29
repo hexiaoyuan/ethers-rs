@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![deny(unsafe_code, rustdoc::broken_intra_doc_links)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use crate::errors::{is_blocked_by_cloudflare_response, is_cloudflare_security_challenge};
 use contract::ContractMetadata;
@@ -27,7 +28,7 @@ pub mod transaction;
 pub mod utils;
 pub mod verify;
 
-pub(crate) type Result<T> = std::result::Result<T, EtherscanError>;
+pub(crate) type Result<T, E = EtherscanError> = std::result::Result<T, E>;
 
 /// The Etherscan.io API client.
 #[derive(Clone, Debug)]

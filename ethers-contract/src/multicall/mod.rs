@@ -770,6 +770,15 @@ impl<M: Middleware> Multicall<M> {
         })
     }
 
+    /// we need tx to customize -- pt01
+    pub fn tx(&self) -> TypedTransaction {
+        match self.version {
+            MulticallVersion::Multicall => self.as_aggregate().tx,
+            MulticallVersion::Multicall2 => self.as_try_aggregate().tx,
+            MulticallVersion::Multicall3 => self.as_aggregate_3_value().tx,
+        }
+    }
+
     /// v1
     #[inline]
     fn as_aggregate(&self) -> ContractCall<M, (U256, Vec<Bytes>)> {

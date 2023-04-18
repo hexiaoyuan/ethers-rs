@@ -144,6 +144,10 @@ pub enum Chain {
     Boba = 288,
 
     BaseGoerli = 84531,
+
+    #[strum(to_string = "zksync")]
+    #[serde(alias = "zksync")]
+    ZkSync = 324,
 }
 
 // === impl Chain ===
@@ -276,7 +280,7 @@ impl Chain {
             // Explicitly exhaustive. See NB above.
             Morden | Ropsten | Rinkeby | Goerli | Kovan | XDai | Chiado | Sepolia | Moonbase |
             MoonbeamDev | Optimism | OptimismGoerli | OptimismKovan | Poa | Sokol | Rsk |
-            EmeraldTestnet | Boba | BaseGoerli => return None,
+            EmeraldTestnet | Boba | BaseGoerli | ZkSync => return None,
         };
 
         Some(Duration::from_millis(ms))
@@ -316,6 +320,7 @@ impl Chain {
             CeloAlfajores |
             CeloBaklava |
             Boba |
+            ZkSync |
             BaseGoerli => true,
 
             // Known EIP-1559 chains
@@ -472,6 +477,10 @@ impl Chain {
 
             BaseGoerli => ("https://api-goerli.basescan.org/api", "https://goerli.basescan.org"),
 
+            ZkSync => {
+                ("https://zksync2-mainnet-explorer.zksync.io/", "https://explorer.zksync.io/")
+            }
+
             AnvilHardhat | Dev | Morden | MoonbeamDev | FilecoinMainnet => {
                 // this is explicitly exhaustive so we don't forget to add new urls when adding a
                 // new chain
@@ -547,6 +556,7 @@ impl Chain {
             EvmosTestnet |
             AnvilHardhat |
             Dev |
+            ZkSync |
             FilecoinMainnet |
             FilecoinHyperspaceTestnet => return None,
         };
@@ -620,6 +630,7 @@ mod tests {
             (PolygonMumbai, &["mumbai"]),
             (AnvilHardhat, &["anvil", "hardhat"]),
             (AvalancheFuji, &["fuji"]),
+            (ZkSync, &["zksync"]),
         ];
 
         for &(chain, aliases) in ALIASES {
@@ -635,7 +646,7 @@ mod tests {
     fn serde_to_string_match() {
         for chain in Chain::iter() {
             let chain_serde = serde_json::to_string(&chain).unwrap();
-            let chain_string = format!("\"{}\"", chain);
+            let chain_string = format!("\"{chain}\"");
             assert_eq!(chain_serde, chain_string);
         }
     }

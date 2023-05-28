@@ -205,20 +205,21 @@ impl<P: JsonRpcClient> Provider<P> {
     /// Analogous to [`Middleware::call`], but returns a [`CallBuilder`] that can either be
     /// `.await`d or used to override the parameters sent to `eth_call`.
     ///
-    /// See the [`call_raw::spoof`] for functions to construct state override parameters.
+    /// See the [`ethers_core::types::spoof`] for functions to construct state override
+    /// parameters.
     ///
     /// Note: this method _does not_ send a transaction from your account
     ///
-    /// [`call_raw::spoof`]: crate::call_raw::spoof
+    /// [`ethers_core::types::spoof`]: ethers_core::types::spoof
     ///
     /// # Example
     ///
     /// ```no_run
     /// # use ethers_core::{
-    /// #     types::{Address, TransactionRequest, H256},
+    /// #     types::{Address, TransactionRequest, H256, spoof},
     /// #     utils::{parse_ether, Geth},
     /// # };
-    /// # use ethers_providers::{Provider, Http, Middleware, call_raw::{RawCall, spoof}};
+    /// # use ethers_providers::{Provider, Http, Middleware, call_raw::RawCall};
     /// # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
     /// let geth = Geth::new().spawn();
     /// let provider = Provider::<Http>::try_from(geth.endpoint()).unwrap();
@@ -1059,6 +1060,15 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
         self.subscribe(["newPendingTransactions"]).await
     }
 
+    async fn subscribe_full_pending_txs(
+        &self,
+    ) -> Result<SubscriptionStream<'_, P, Transaction>, ProviderError>
+    where
+        P: PubsubClient,
+    {
+        self.subscribe([utils::serialize(&"newPendingTransactions"), utils::serialize(&true)]).await
+    }
+
     async fn subscribe_logs<'a>(
         &'a self,
         filter: &Filter,
@@ -1740,9 +1750,7 @@ mod tests {
         )
         .unwrap();
 
-        let history =
-            provider.fee_history(10u64, BlockNumber::Latest, &[10.0, 40.0]).await.unwrap();
-        dbg!(&history);
+        provider.fee_history(10u64, BlockNumber::Latest, &[10.0, 40.0]).await.unwrap();
     }
 
     #[tokio::test]
@@ -1753,7 +1761,7 @@ mod tests {
 
         // TODO: Implement ErigonInstance, so it'd be possible to test this.
         let provider = Provider::new(crate::Ws::connect("ws://127.0.0.1:8545").await.unwrap());
-        let traces = provider
+        provider
             .trace_call_many(
                 vec![
                     (
@@ -1783,7 +1791,6 @@ mod tests {
             )
             .await
             .unwrap();
-        dbg!(traces);
     }
 
     #[tokio::test]

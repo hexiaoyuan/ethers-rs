@@ -22,7 +22,6 @@ exclude = [
 # https://docs.rs/about/metadata
 [workspace.metadata.docs.rs]
 all-features = true
-rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 # https://github.com/integer32llc/rust-playground/blob/c6165a36923db5d99313e6056b5b610a2ede5bb0/top-crates/src/lib.rs#L175-L184
@@ -34,6 +33,8 @@ members = [
     "ethers",
     "ethers-addressbook",
     "ethers-contract",
+    "ethers-contract/ethers-contract-abigen",
+    "ethers-contract/ethers-contract-derive",
     "ethers-core",
     "ethers-etherscan",
     "ethers-middleware",
@@ -50,6 +51,8 @@ default-members = [
     "ethers",
     "ethers-addressbook",
     "ethers-contract",
+    "ethers-contract/ethers-contract-abigen",
+    "ethers-contract/ethers-contract-derive",
     "ethers-core",
     "ethers-etherscan",
     "ethers-middleware",
@@ -79,7 +82,7 @@ ethers-contract-derive = { version = "2.0.4", path = "ethers-contract/ethers-con
 
 # async / async utils
 tokio = "1.28"
-tokio-tungstenite = { version = "0.18.0", default-features = false }
+tokio-tungstenite = { version = "0.19", default-features = false }
 futures = { version = "0.3.28", default-features = false, features = ["std"] }
 futures-core = "0.3.28"
 futures-util = "0.3.28"
@@ -87,8 +90,8 @@ futures-executor = "0.3.28"
 futures-channel = "0.3.28"
 futures-locks = { version = "0.7.1", default-features = false }
 futures-timer = { version = "3.0.2", default-features = false, features = ["wasm-bindgen"] }
-pin-project = "1.0"
-reqwest = { version = "0.11.17", default-features = false }
+pin-project = "1.1"
+reqwest = { version = "0.11.18", default-features = false }
 url = { version = "2.3", default-features = false }
 
 # crypto
@@ -97,7 +100,7 @@ generic-array = { version = "0.14.7", default-features = false }
 k256 = { version = "0.13.1", default-features = false, features = ["ecdsa", "std"] }
 sha2 = { version = "0.10.6", default-features = false }
 tiny-keccak = { version = "2.0.2", default-features = false }
-spki = { version = "0.7.1", default-features = false }
+spki = { version = "0.7.2", default-features = false }
 
 # serde
 serde = "1.0"
@@ -108,7 +111,7 @@ proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["extra-traits"] }
 async-trait = "0.1.68"
-auto_impl = "1.0"
+auto_impl = "1.1"
 
 # misc
 bytes = "1.4"
@@ -135,5 +138,4 @@ tracing-subscriber = { version = "0.3.17", default-features = false }
 tracing-futures = "0.2.5"
 
 # wasm
-getrandom = { version = "0.2", features = ["js"] }
 instant = "0.1.12"

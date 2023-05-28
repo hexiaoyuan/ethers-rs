@@ -153,9 +153,14 @@ pub enum Chain {
 
     BaseGoerli = 84531,
 
+    LineaTestnet = 59140,
+
     #[strum(to_string = "zksync")]
     #[serde(alias = "zksync")]
     ZkSync = 324,
+    #[strum(to_string = "zksync-testnet")]
+    #[serde(alias = "zksync_testnet")]
+    ZkSyncTestnet = 280,
 }
 
 // === impl Chain ===
@@ -288,8 +293,8 @@ impl Chain {
             // Explicitly exhaustive. See NB above.
             Morden | Ropsten | Rinkeby | Goerli | Kovan | XDai | Chiado | Sepolia | Moonbase |
             MoonbeamDev | Optimism | OptimismGoerli | OptimismKovan | Poa | Sokol | Rsk |
-            EmeraldTestnet | Boba | BaseGoerli | ZkSync | PolygonZkEvm | PolygonZkEvmTestnet |
-            Metis => return None,
+            EmeraldTestnet | Boba | BaseGoerli | ZkSync | ZkSyncTestnet | PolygonZkEvm |
+            PolygonZkEvmTestnet | Metis | LineaTestnet => return None,
         };
 
         Some(Duration::from_millis(ms))
@@ -317,10 +322,7 @@ impl Chain {
             FantomTestnet |
             BinanceSmartChain |
             BinanceSmartChainTestnet |
-            Arbitrum |
             ArbitrumTestnet |
-            ArbitrumGoerli |
-            ArbitrumNova |
             Rsk |
             Oasis |
             Emerald |
@@ -330,6 +332,7 @@ impl Chain {
             CeloBaklava |
             Boba |
             ZkSync |
+            ZkSyncTestnet |
             BaseGoerli |
             PolygonZkEvm |
             PolygonZkEvmTestnet => true,
@@ -342,7 +345,11 @@ impl Chain {
             PolygonMumbai |
             Avalanche |
             AvalancheFuji |
+            Arbitrum |
+            ArbitrumGoerli |
+            ArbitrumNova |
             FilecoinMainnet |
+            LineaTestnet |
             FilecoinHyperspaceTestnet => false,
 
             // Unknown / not applicable, default to false for backwards compatibility
@@ -350,6 +357,17 @@ impl Chain {
             Sokol | Poa | XDai | Moonbeam | MoonbeamDev | Moonriver | Moonbase | Evmos |
             EvmosTestnet | Chiado | Aurora | AuroraTestnet | Canto | CantoTestnet |
             ScrollAlphaTestnet | Metis => false,
+        }
+    }
+
+    /// Returns whether the chain supports the `PUSH0` opcode or not.
+    ///
+    /// For more information, see EIP-3855:
+    /// `<https://eips.ethereum.org/EIPS/eip-3855>`
+    pub const fn supports_push0(&self) -> bool {
+        match self {
+            Chain::Mainnet | Chain::Goerli | Chain::Sepolia => true,
+            _ => false,
         }
     }
 
@@ -503,6 +521,13 @@ impl Chain {
             ZkSync => {
                 ("https://zksync2-mainnet-explorer.zksync.io/", "https://explorer.zksync.io/")
             }
+            ZkSyncTestnet => (
+                "https://zksync2-testnet-explorer.zksync.dev/",
+                "https://goerli.explorer.zksync.io/",
+            ),
+            LineaTestnet => {
+                ("https://explorer.goerli.linea.build/api", "https://explorer.goerli.linea.build/")
+            }
 
             AnvilHardhat | Dev | Morden | MoonbeamDev | FilecoinMainnet => {
                 // this is explicitly exhaustive so we don't forget to add new urls when adding a
@@ -581,7 +606,9 @@ impl Chain {
             AnvilHardhat |
             Dev |
             ZkSync |
+            ZkSyncTestnet |
             FilecoinMainnet |
+            LineaTestnet |
             FilecoinHyperspaceTestnet => return None,
         };
 

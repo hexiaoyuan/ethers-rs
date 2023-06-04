@@ -313,6 +313,11 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
                         .or(Some(max_priority_fee_per_gas));
                 };
             }
+            #[cfg(feature = "optimism")]
+            TypedTransaction::OptimismDeposited(_) => {
+                let gas_price = maybe(tx.gas_price(), self.get_gas_price()).await?;
+                tx.set_gas_price(gas_price);
+            }
         }
 
         // Set gas to estimated value only if it was not set by the caller,
@@ -758,9 +763,8 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
         self.request("admin_removeTrustedPeer", [enode_url]).await
     }
 
-    async fn start_mining(&self, threads: Option<usize>) -> Result<(), Self::Error> {
-        let threads = utils::serialize(&threads);
-        self.request("miner_start", [threads]).await
+    async fn start_mining(&self) -> Result<(), Self::Error> {
+        self.request("miner_start", ()).await
     }
 
     async fn stop_mining(&self) -> Result<(), Self::Error> {
@@ -1511,7 +1515,6 @@ pub fn is_local_endpoint(endpoint: &str) -> bool {
 }
 
 #[cfg(test)]
-#[cfg(not(target_arch = "wasm32"))]
 mod tests {
     use super::*;
     use crate::Http;

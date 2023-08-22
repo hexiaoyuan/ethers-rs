@@ -34,13 +34,13 @@ use super::optimism_deposited::{
 #[cfg_attr(feature = "legacy", serde(untagged))]
 pub enum TypedTransaction {
     // 0x00
-    #[serde(rename = "0x00")]
+    #[serde(rename = "0x00", alias = "0x0")]
     Legacy(TransactionRequest),
     // 0x01
-    #[serde(rename = "0x01")]
+    #[serde(rename = "0x01", alias = "0x1")]
     Eip2930(Eip2930TransactionRequest),
     // 0x02
-    #[serde(rename = "0x02")]
+    #[serde(rename = "0x02", alias = "0x2")]
     Eip1559(Eip1559TransactionRequest),
     // 0x7E
     #[cfg(feature = "optimism")]
@@ -662,7 +662,6 @@ impl From<TypedTransaction> for Eip2930TransactionRequest {
 
 #[cfg(test)]
 mod tests {
-    use hex::ToHex;
     use rlp::Decodable;
 
     use super::*;
@@ -714,8 +713,9 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "legacy", ignore)]
     fn test_typed_tx() {
-        let tx: Eip1559TransactionRequest = serde_json::from_str(
+        let envelope: TypedTransaction = serde_json::from_str(
             r#"{
             "gas": "0x186a0",
             "maxFeePerGas": "0x77359400",
@@ -741,7 +741,7 @@ mod tests {
         )
         .unwrap();
 
-        let envelope = TypedTransaction::Eip1559(tx);
+        assert!(matches!(envelope, TypedTransaction::Eip1559(_)));
 
         let expected =
             H256::from_str("0x090b19818d9d087a49c3d2ecee4829ee4acea46089c1381ac5e588188627466d")
@@ -858,7 +858,7 @@ mod tests {
         // compare rlp - sighash should then be the same
         let tx_expected_rlp = "f90145052b85012a05f20085012a05f2148301b3cd8080b9012d608060405234801561001057600080fd5b5061010d806100206000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c8063cfae3217146037578063f8a8fd6d146066575b600080fd5b604080518082019091526003815262676d2160e81b60208201525b604051605d91906085565b60405180910390f35b6040805180820190915260048152636f6f662160e01b60208201526052565b600060208083528351808285015260005b8181101560b0578581018301518582016040015282016096565b8181111560c1576000604083870101525b50601f01601f191692909201604001939250505056fea2646970667358221220f89093a9819ba5d2a3384305511d0945ea94f36a8aa162ab62921b3841fe3afd64736f6c634300080c0033c0";
         let tx_real_rlp_vec = tx.rlp().to_vec();
-        let tx_real_rlp: String = tx_real_rlp_vec.encode_hex();
+        let tx_real_rlp: String = hex::encode(tx_real_rlp_vec);
         assert_eq!(tx_expected_rlp, tx_real_rlp);
 
         let r =

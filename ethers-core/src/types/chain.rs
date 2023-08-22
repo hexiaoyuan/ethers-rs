@@ -151,8 +151,10 @@ pub enum Chain {
 
     Boba = 288,
 
+    Base = 8453,
     BaseGoerli = 84531,
 
+    Linea = 59144,
     LineaTestnet = 59140,
 
     #[strum(to_string = "zksync")]
@@ -296,8 +298,9 @@ impl Chain {
             ScrollAlphaTestnet => 3_000,
             // Explicitly exhaustive. See NB above.
             Morden | Ropsten | Rinkeby | Goerli | Kovan | XDai | Chiado | Sepolia | Moonbase |
-            MoonbeamDev | OptimismKovan | Poa | Sokol | Rsk | EmeraldTestnet | Boba |
+            MoonbeamDev | OptimismKovan | Poa | Sokol | Rsk | EmeraldTestnet | Boba | Base |
             BaseGoerli | ZkSync | ZkSyncTestnet | PolygonZkEvm | PolygonZkEvmTestnet | Metis |
+            Linea => return None,
             LineaTestnet => return None,
         };
 
@@ -335,7 +338,6 @@ impl Chain {
             Boba |
             ZkSync |
             ZkSyncTestnet |
-            BaseGoerli |
             PolygonZkEvm |
             PolygonZkEvmTestnet => true,
 
@@ -343,6 +345,8 @@ impl Chain {
             Mainnet |
             Goerli |
             Sepolia |
+            Base |
+            BaseGoerli |
             Optimism |
             OptimismGoerli |
             Polygon |
@@ -353,6 +357,7 @@ impl Chain {
             ArbitrumGoerli |
             ArbitrumNova |
             FilecoinMainnet |
+            Linea |
             LineaTestnet |
             FilecoinHyperspaceTestnet => false,
 
@@ -520,6 +525,8 @@ impl Chain {
 
             Boba => ("https://api.bobascan.com/api", "https://bobascan.com"),
 
+            Base => ("https://api.basescan.org/api", "https://basescan.org"),
+
             BaseGoerli => ("https://api-goerli.basescan.org/api", "https://goerli.basescan.org"),
 
             ZkSync => {
@@ -529,6 +536,7 @@ impl Chain {
                 "https://zksync2-testnet-explorer.zksync.dev/",
                 "https://goerli.explorer.zksync.io/",
             ),
+            Linea => ("https://api.lineascan.build/api", "https://lineascan.build/"),
             LineaTestnet => {
                 ("https://explorer.goerli.linea.build/api", "https://explorer.goerli.linea.build/")
             }
@@ -579,6 +587,8 @@ impl Chain {
             Celo |
             CeloAlfajores |
             CeloBaklava |
+            Base |
+            Linea |
             BaseGoerli => "ETHERSCAN_API_KEY",
 
             Avalanche | AvalancheFuji => "SNOWTRACE_API_KEY",

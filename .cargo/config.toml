@@ -1,3 +1,3 @@
 [build]
-jobs = 4
-target-dir = "/x/cargo_target_dir/ethers-rs/"
+#jobs = 4
+#target-dir = "/x/cargo_target_dir/ethers-rs/"

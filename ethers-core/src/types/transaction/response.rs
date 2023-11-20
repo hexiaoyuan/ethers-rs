@@ -68,8 +68,8 @@ pub struct Transaction {
     ///////////////// Optimism-specific transaction fields //////////////
     /// The source-hash that uniquely identifies the origin of the deposit
     #[cfg(feature = "optimism")]
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "sourceHash")]
-    pub source_hash: Option<H256>,
+    #[serde(default, rename = "sourceHash")]
+    pub source_hash: H256,
 
     /// The ETH value to mint on L2
     #[cfg(feature = "optimism")]
@@ -78,8 +78,8 @@ pub struct Transaction {
 
     /// True if the transaction does not interact with the L2 block gas pool
     #[cfg(feature = "optimism")]
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "isSystemTx")]
-    pub is_system_tx: Option<bool>,
+    #[serde(default, rename = "isSystemTx")]
+    pub is_system_tx: bool,
 
     /////////////////  Celo-specific transaction fields /////////////////
     /// The currency fees are paid in (None for native currency)
@@ -132,7 +132,7 @@ pub struct Transaction {
     pub chain_id: Option<U256>,
 
     /// Captures unknown fields such as additional fields used by L2s
-    #[cfg(not(any(feature = "celo", feature = "optimism")))]
+    #[cfg(not(any(feature = "celo")))]
     #[serde(flatten)]
     pub other: crate::types::OtherFields,
 }
@@ -197,13 +197,13 @@ impl Transaction {
             // Optimism Deposited Transaction
             #[cfg(feature = "optimism")]
             Some(x) if x == U64::from(0x7E) => {
-                rlp_opt(&mut rlp, &self.source_hash);
+                rlp.append(&self.source_hash);
                 rlp.append(&self.from);
                 rlp_opt(&mut rlp, &self.to);
                 rlp_opt(&mut rlp, &self.mint);
                 rlp.append(&self.value);
-                rlp.append(&self.gas);
-                rlp_opt(&mut rlp, &self.is_system_tx);
+                rlp.append(&self.gas.as_u64());
+                rlp.append(&self.is_system_tx);
                 rlp.append(&self.input.as_ref());
             }
             // Legacy (0x00)
@@ -354,6 +354,35 @@ impl Transaction {
         Ok(())
     }
 
+    /// Decodes a deposit transaction starting at the RLP offset passed.
+    /// Increments the offset for each element parsed.
+    #[cfg(feature = "optimism")]
+    #[inline]
+    fn decode_base_deposit(
+        &mut self,
+        rlp: &rlp::Rlp,
+        offset: &mut usize,
+    ) -> Result<(), DecoderError> {
+        self.source_hash = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.from = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.to = Some(rlp.val_at(*offset)?);
+        *offset += 1;
+        self.mint = Some(rlp.val_at(*offset)?);
+        *offset += 1;
+        self.value = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.gas = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.is_system_tx = rlp.val_at(*offset)?;
+        *offset += 1;
+        let input = rlp::Rlp::new(rlp.at(*offset)?.as_raw()).data()?;
+        self.input = Bytes::from(input.to_vec());
+        *offset += 1;
+        Ok(())
+    }
+
     /// Recover the sender of the tx from signature
     pub fn recover_from(&self) -> Result<Address, SignatureError> {
         let signature = Signature { r: self.r, s: self.s, v: self.v.as_u64() };
@@ -389,7 +418,7 @@ impl Decodable for Transaction {
             txn.chain_id = extract_chain_id(sig.v).map(|id| id.as_u64().into());
         } else {
             // if it is not enveloped then we need to use rlp.as_raw instead of rlp.data
-            let first_byte = rlp.as_raw()[0];
+            let first_byte = *rlp.as_raw().first().ok_or(DecoderError::Custom("empty slice"))?;
             let (first, data) = if first_byte <= 0x7f {
                 (first_byte, rlp.as_raw())
             } else {
@@ -404,18 +433,28 @@ impl Decodable for Transaction {
                 0x01 => {
                     txn.decode_base_eip2930(&rest, &mut offset)?;
                     txn.transaction_type = Some(1u64.into());
+
+                    let odd_y_parity: bool = rest.val_at(offset)?;
+                    txn.v = (odd_y_parity as u8).into();
+                    txn.r = rest.val_at(offset + 1)?;
+                    txn.s = rest.val_at(offset + 2)?;
                 }
                 0x02 => {
                     txn.decode_base_eip1559(&rest, &mut offset)?;
                     txn.transaction_type = Some(2u64.into());
+
+                    let odd_y_parity: bool = rest.val_at(offset)?;
+                    txn.v = (odd_y_parity as u8).into();
+                    txn.r = rest.val_at(offset + 1)?;
+                    txn.s = rest.val_at(offset + 2)?;
+                }
+                #[cfg(feature = "optimism")]
+                0x7E => {
+                    txn.decode_base_deposit(&rest, &mut offset)?;
+                    txn.transaction_type = Some(0x7Eu64.into());
                 }
                 _ => return Err(DecoderError::Custom("invalid tx type")),
             }
-
-            let odd_y_parity: bool = rest.val_at(offset)?;
-            txn.v = (odd_y_parity as u8).into();
-            txn.r = rest.val_at(offset + 1)?;
-            txn.s = rest.val_at(offset + 2)?;
         }
 
         Ok(txn)
@@ -546,8 +585,10 @@ impl PartialOrd<Self> for TransactionReceipt {
 }
 
 #[cfg(test)]
-#[cfg(feature = "optimism")]
+#[cfg(all(feature = "optimism", not(feature = "celo")))]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use rlp::Encodable;
 
@@ -579,6 +620,54 @@ mod tests {
             other: crate::types::OtherFields::default(),
         };
         assert_eq!(expected.rlp_bytes().to_vec(), data);
+    }
+
+    #[test]
+    fn test_encode_and_decode_deposit_tx() {
+        let deposited_tx = Transaction {
+            hash: H256::from_str("0x7fd17d4a368fccdba4291ab121e48c96329b7dc3d027a373643fb23c20a19a3f").unwrap(),
+            nonce: U256::from(4391989),
+            block_hash: Some(H256::from_str("0xc2794a16acacd9f7670379ffd12b6968ff98e2a602f57d7d1f880220aa5a4973").unwrap()),
+            block_number: Some(8453214u64.into()),
+            transaction_index: Some(0u64.into()),
+            from: Address::from_str("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001").unwrap(),
+            to: Some(Address::from_str("0x4200000000000000000000000000000000000015").unwrap()),
+            value: U256::zero(),
+            gas_price: None,
+            gas: U256::from(1000000u64),
+            input: Bytes::from(
+                hex::decode("015d8eb90000000000000000000000000000000000000000000000000000000000878c1c00000000000000000000000000000000000000000000000000000000644662bc0000000000000000000000000000000000000000000000000000001ee24fba17b7e19cc10812911dfa8a438e0a81a9933f843aa5b528899b8d9e221b649ae0df00000000000000000000000000000000000000000000000000000000000000060000000000000000000000007431310e026b69bfc676c0013e12a1a11411eec9000000000000000000000000000000000000000000000000000000000000083400000000000000000000000000000000000000000000000000000000000f4240").unwrap()
+            ),
+            v: U64::zero(),
+            r: U256::zero(),
+            s: U256::zero(),
+            source_hash: H256::from_str("0xa8157ccf61bcdfbcb74a84ec1262e62644dd1e7e3614abcbd8db0c99a60049fc").unwrap(),
+            mint: Some(0.into()),
+            is_system_tx: false,
+            transaction_type: Some(U64::from(126)),
+            access_list: None,
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            chain_id: None,
+            #[cfg(not(feature = "celo"))]
+            other: crate::types::OtherFields::default(),
+        };
+
+        let encoded_rlp_bytes = deposited_tx.rlp();
+        let expected_rlp_bytes = Bytes::from(hex::decode("7ef90159a0a8157ccf61bcdfbcb74a84ec1262e62644dd1e7e3614abcbd8db0c99a60049fc94deaddeaddeaddeaddeaddeaddeaddeaddead00019442000000000000000000000000000000000000158080830f424080b90104015d8eb90000000000000000000000000000000000000000000000000000000000878c1c00000000000000000000000000000000000000000000000000000000644662bc0000000000000000000000000000000000000000000000000000001ee24fba17b7e19cc10812911dfa8a438e0a81a9933f843aa5b528899b8d9e221b649ae0df00000000000000000000000000000000000000000000000000000000000000060000000000000000000000007431310e026b69bfc676c0013e12a1a11411eec9000000000000000000000000000000000000000000000000000000000000083400000000000000000000000000000000000000000000000000000000000f4240").unwrap());
+        assert_eq!(encoded_rlp_bytes, expected_rlp_bytes);
+
+        let mut decoded_tx =
+            Transaction::decode(&rlp::Rlp::new(encoded_rlp_bytes.as_ref())).unwrap();
+
+        // assert only fields that are included in a deposit tx.
+        // these fields are not decoded into the transaction struct.
+        decoded_tx.nonce = deposited_tx.nonce;
+        decoded_tx.block_hash = deposited_tx.block_hash;
+        decoded_tx.block_number = deposited_tx.block_number;
+        decoded_tx.transaction_index = deposited_tx.transaction_index;
+
+        assert_eq!(decoded_tx, deposited_tx);
     }
 }
 
@@ -1237,43 +1326,5 @@ mod tests {
             ..Default::default()
         };
         Transaction::decode(&Rlp::new(&tx.rlp())).unwrap();
-    }
-
-    #[test]
-    #[cfg(feature = "optimism")]
-    fn test_rlp_encode_deposited_tx() {
-        let deposited_tx = Transaction {
-            hash: H256::from_str("0x7fd17d4a368fccdba4291ab121e48c96329b7dc3d027a373643fb23c20a19a3f").unwrap(),
-            nonce: U256::from(4391989),
-            block_hash: Some(H256::from_str("0xc2794a16acacd9f7670379ffd12b6968ff98e2a602f57d7d1f880220aa5a4973").unwrap()),
-            block_number: Some(8453214u64.into()),
-            transaction_index: Some(0u64.into()),
-            from: Address::from_str("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001").unwrap(),
-            to: Some(Address::from_str("0x4200000000000000000000000000000000000015").unwrap()),
-            value: U256::zero(),
-            gas_price: Some(U256::zero()),
-            gas: U256::from(1000000u64),
-            input: Bytes::from(
-                hex::decode("015d8eb90000000000000000000000000000000000000000000000000000000000878c1c00000000000000000000000000000000000000000000000000000000644662bc0000000000000000000000000000000000000000000000000000001ee24fba17b7e19cc10812911dfa8a438e0a81a9933f843aa5b528899b8d9e221b649ae0df00000000000000000000000000000000000000000000000000000000000000060000000000000000000000007431310e026b69bfc676c0013e12a1a11411eec9000000000000000000000000000000000000000000000000000000000000083400000000000000000000000000000000000000000000000000000000000f4240").unwrap()
-            ),
-            v: U64::zero(),
-            r: U256::zero(),
-            s: U256::zero(),
-            source_hash: Some(H256::from_str("0xa8157ccf61bcdfbcb74a84ec1262e62644dd1e7e3614abcbd8db0c99a60049fc").unwrap()),
-            mint: Some(0.into()),
-            is_system_tx: None,
-            transaction_type: Some(U64::from(126)),
-            access_list: None,
-            max_priority_fee_per_gas: None,
-            max_fee_per_gas: None,
-            chain_id: None,
-            other: Default::default()
-        };
-
-        let rlp = deposited_tx.rlp();
-
-        let expected_rlp = Bytes::from(hex::decode("7ef90159a0a8157ccf61bcdfbcb74a84ec1262e62644dd1e7e3614abcbd8db0c99a60049fc94deaddeaddeaddeaddeaddeaddeaddeaddead00019442000000000000000000000000000000000000158080830f424080b90104015d8eb90000000000000000000000000000000000000000000000000000000000878c1c00000000000000000000000000000000000000000000000000000000644662bc0000000000000000000000000000000000000000000000000000001ee24fba17b7e19cc10812911dfa8a438e0a81a9933f843aa5b528899b8d9e221b649ae0df00000000000000000000000000000000000000000000000000000000000000060000000000000000000000007431310e026b69bfc676c0013e12a1a11411eec9000000000000000000000000000000000000000000000000000000000000083400000000000000000000000000000000000000000000000000000000000f4240").unwrap());
-
-        assert_eq!(rlp, expected_rlp);
     }
 }

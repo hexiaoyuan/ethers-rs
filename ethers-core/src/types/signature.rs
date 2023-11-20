@@ -92,20 +92,19 @@ impl Signature {
     where
         M: Into<RecoveryMessage>,
     {
-        let message = message.into();
-        let message_hash = match message {
+        let message_hash = match message.into() {
             RecoveryMessage::Data(ref message) => hash_message(message),
             RecoveryMessage::Hash(hash) => hash,
         };
 
         let (recoverable_sig, recovery_id) = self.as_signature()?;
-        let verify_key = VerifyingKey::recover_from_prehash(
+        let verifying_key = VerifyingKey::recover_from_prehash(
             message_hash.as_ref(),
             &recoverable_sig,
             recovery_id,
         )?;
 
-        let public_key = K256PublicKey::from(&verify_key);
+        let public_key = K256PublicKey::from(&verifying_key);
         let public_key = public_key.to_encoded_point(/* compress = */ false);
         let public_key = public_key.as_bytes();
         debug_assert_eq!(public_key[0], 0x04);
@@ -128,8 +127,8 @@ impl Signature {
 
     /// Retrieves the recovery signature.
     fn as_signature(&self) -> Result<(RecoverableSignature, RecoveryId), SignatureError> {
-        let recovery_id = self.recovery_id()?;
-        let signature = {
+        let mut recovery_id = self.recovery_id()?;
+        let mut signature = {
             let mut r_bytes = [0u8; 32];
             let mut s_bytes = [0u8; 32];
             self.r.to_big_endian(&mut r_bytes);
@@ -138,6 +137,14 @@ impl Signature {
             let gas: &GenericArray<u8, U32> = GenericArray::from_slice(&s_bytes);
             K256Signature::from_scalars(*gar, *gas)?
         };
+
+        // Normalize into "low S" form. See:
+        // - https://github.com/RustCrypto/elliptic-curves/issues/988
+        // - https://github.com/bluealloy/revm/pull/870
+        if let Some(normalized) = signature.normalize_s() {
+            signature = normalized;
+            recovery_id = RecoveryId::from_byte(recovery_id.to_byte() ^ 1).unwrap();
+        }
 
         Ok((signature, recovery_id))
     }
@@ -178,14 +185,28 @@ impl open_fastrlp::Encodable for Signature {
     }
 }
 
+/// Normalize a V value, respecting raw, legacy, and EIP-155 values.
+///
+/// This function covers the entire u64 range, producing v-values as follows:
+/// - 0-26 - raw/bare. 0-3 are legal. In order to ensure that all values are covered, we also handle
+///   4-26 here by returning v % 4.
+/// - 27-34 - legacy. 27-30 are legal. By legacy bitcoin convention range 27-30 signals uncompressed
+///   pubkeys, while 31-34 signals compressed pubkeys. We do not respect the compression convention.
+///   All Ethereum keys are uncompressed.
+/// - 35+ - EIP-155. By EIP-155 convention, `v = 35 + CHAIN_ID * 2 + 0/1` We return (v-1 % 2) here.
+///
+/// NB: raw and legacy support values 2, and 3, while EIP-155 does not.
+/// Recovery values of 2 and 3 are unlikely to occur in practice. In the vanishingly unlikely event
+/// that you encounter an EIP-155 signature with a recovery value of 2 or 3, you should normalize
+/// out of band.
 fn normalize_recovery_id(v: u64) -> u8 {
     match v {
-        0 => 0,
-        1 => 1,
-        27 => 0,
-        28 => 1,
-        v if v >= 35 => ((v - 1) % 2) as _,
-        _ => 4,
+        // Case 0: raw/bare
+        v @ 0..=26 => (v % 4) as u8,
+        // Case 2: non-eip155 v value
+        v @ 27..=34 => ((v - 27) % 4) as u8,
+        // Case 3: eip155 V value
+        v @ 35.. => ((v - 1) % 2) as u8,
     }
 }
 
@@ -294,6 +315,32 @@ impl From<H256> for RecoveryMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::Transaction;
+
+    #[test]
+    fn can_recover_tx_sender() {
+        // random mainnet tx: https://etherscan.io/tx/0x86718885c4b4218c6af87d3d0b0d83e3cc465df2a05c048aa4db9f1a6f9de91f
+        let tx_rlp = hex::decode("02f872018307910d808507204d2cb1827d0094388c818ca8b9251b393131c08a736a67ccb19297880320d04823e2701c80c001a0cf024f4815304df2867a1a74e9d2707b6abda0337d2d54a4438d453f4160f190a07ac0e6b3bc9395b5b9c8b9e6d77204a236577a5b18467b9175c01de4faa208d9").unwrap();
+        let tx: Transaction = rlp::decode(&tx_rlp).unwrap();
+        assert_eq!(tx.rlp(), tx_rlp);
+        assert_eq!(
+            tx.hash,
+            "0x86718885c4b4218c6af87d3d0b0d83e3cc465df2a05c048aa4db9f1a6f9de91f".parse().unwrap()
+        );
+        assert_eq!(tx.transaction_type, Some(2.into()));
+        let expected = Address::from_str("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5").unwrap();
+        assert_eq!(tx.recover_from().unwrap(), expected);
+    }
+
+    #[test]
+    fn can_recover_tx_sender_not_normalized() {
+        let sig = Signature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap();
+        let hash =
+            H256::from_str("5eb4f5a33c621f32a8622d5f943b6b102994dfe4e5aebbefe69bb1b2aa0fc93e")
+                .unwrap();
+        let expected = Address::from_str("0f65fe9276bc9a24ae7083ae28e2660ef72df99e").unwrap();
+        assert_eq!(sig.recover(hash).unwrap(), expected);
+    }
 
     #[test]
     fn recover_web3_signature() {
